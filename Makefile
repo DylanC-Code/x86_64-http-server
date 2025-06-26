@@ -16,10 +16,10 @@ FLAGS =
 
 # 📁 Sources & Objets
 SRCS :=	$(addprefix srcs/, \
-		main.c \
+		main.s \
+		utils.s \
 )
-OBJS := $(patsubst %.c, $(BUILD_DIR)%.o, $(SRCS))
-DEPS := $(OBJS:.o=.d)
+OBJS := $(patsubst %.s, $(BUILD_DIR)%.o, $(SRCS))
 
 # 🛠 Utilitaires
 RM := rm -rf
@@ -68,6 +68,3 @@ re: fclean all
 
 # 📌 Phony targets
 .PHONY: all clean fclean re
-
-# 📂 Dépendances
--include $(DEPS)
