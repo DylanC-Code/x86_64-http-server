@@ -17,7 +17,9 @@ ASMFLAGS := -f elf64 $(INCLUDES)
 
 # 📁 Sources & Objets
 SRCS :=	$(addprefix srcs/, \
+		http.asm \
 		main.asm \
+		parse.asm \
 		socket.asm \
 		utils.asm \
 )
