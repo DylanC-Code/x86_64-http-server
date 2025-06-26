@@ -10,17 +10,18 @@ SRCS_DIR := srcs/
 BUILD_DIR := build/
 
 # 📦 Assembler & Flags
-AS := as
+AS := nasm
 LD := ld
-FLAGS =
+INCLUDES := -I includes
+ASMFLAGS := -f elf64 $(INCLUDES)
 
 # 📁 Sources & Objets
 SRCS :=	$(addprefix srcs/, \
-		main.s \
-		socket.s \
-		utils.s \
+		main.asm \
+		socket.asm \
+		utils.asm \
 )
-OBJS := $(patsubst %.s, $(BUILD_DIR)%.o, $(SRCS))
+OBJS := $(patsubst %.asm, $(BUILD_DIR)%.o, $(SRCS))
 
 # 🛠 Utilitaires
 RM := rm -rf
@@ -36,9 +37,9 @@ $(NAME): $(OBJS)
 	$(LD) -o $(NAME) $(OBJS)
 
 # 🔨 Assembling of .s to .o
-$(BUILD_DIR)%.o: %.s
+$(BUILD_DIR)%.o: %.asm
 	mkdir -p $(dir $@)
-	$(AS) $< -o $@
+	$(AS) $(ASMFLAGS) $< -o $@
 
 
 # ============================================================================== #
