@@ -17,6 +17,7 @@ FLAGS =
 # 📁 Sources & Objets
 SRCS :=	$(addprefix srcs/, \
 		main.s \
+		socket.s \
 		utils.s \
 )
 OBJS := $(patsubst %.s, $(BUILD_DIR)%.o, $(SRCS))

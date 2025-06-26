@@ -6,5 +6,5 @@
 
 
 _start:
-    #call    build_socket
-    call utils_exit
+    call    build_socket
+    call    utils_exit
