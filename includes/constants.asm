@@ -20,7 +20,8 @@
 ; =====================
 ; Network Constants
 ; =====================
-%define PORT_HTTP     0x5000      ; Port 80 (big endian)
+%define PORT_HTTP     0x80      ; Port 80 (big endian)
+;%define PORT_HTTP    0x5000      ; Port 80 (big endian)
 %define INADDR_ANY    0x00000000
 
 %endif
