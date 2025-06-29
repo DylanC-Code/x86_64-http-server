@@ -1,7 +1,15 @@
-display/20i $rip
-display/16xb  (unsigned char*)buffer
+set disassembly-flavor intel
 
-break http_handle_request
-break is_get
+display/20i $rip
+
+#break http_handle_request
+
+break parse_request
+commands
+    set $preq = $rsi
+    display/2dg $rsi
+end
+
+break parse_route
 
 run
