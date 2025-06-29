@@ -2,98 +2,97 @@
 
 BITS 64
 
-section .data:
-
-
 section .text
-
 global parse_request
 
-; ----------------------------------------------------------------------------
+; -----------------------------------------------------------------------------
 ; parse_request
-; ----------------------------------------------------------------------------
-; Analyse une requête HTTP brute pour en extraire la méthode et la route.
-; Attend :
+; -----------------------------------------------------------------------------
+; Analyse une requête HTTP brute pour en extraire :
+;   - La méthode (GET, etc.)  → stockée à [rsi]
+;   - La route               → stockée à partir de [rsi + 1]
+;
+; Entrées :
 ;   - rdi : pointeur vers la requête (request_buffer)
-;   - rsi : pointeur vers l'endroit ou stocker la methode et la longueur de route
-; Effet :
-;   - appelle parse_method pour identifier la méthode HTTP (GET, etc.)
-;   - appelle parse_route (non encore défini) pour extraire la route
-; ----------------------------------------------------------------------------
+;   - rsi : pointeur vers parsed_request (1 byte pour méthode, reste pour route)
+; Effets :
+;   - parse_method écrit la méthode à [rsi]
+;   - parse_route écrit la route à [rsi + 1]
+; -----------------------------------------------------------------------------
 parse_request:
-    ;rdi = request_buffer
-    ;rsi = parsed_request
-
     call    parse_method
-    mov     [rsi], rax
-
     call    parse_route
-    mov     [rsi + 8], rax
-
     ret
 
-
-; ----------------------------------------------------------------------------
+; -----------------------------------------------------------------------------
 ; parse_method
-; ----------------------------------------------------------------------------
-; Détecte la méthode HTTP dans la requête.
-; Attend :
+; -----------------------------------------------------------------------------
+; Détecte la méthode HTTP (actuellement uniquement GET)
+; Entrée :
 ;   - rdi : pointeur vers la requête (ex: "GET /...")
-; Retour :
-;   - rax ← constante GET_METHOD si reconnue
-; ----------------------------------------------------------------------------
+; Sortie :
+;   - écrit GET_METHOD dans [rsi] si trouvé
+; -----------------------------------------------------------------------------
 parse_method:
     call    is_get
-    cmp     rax, GET_METHOD
-    je      .parse_method_end
-
-.parse_method_end:
     ret
 
-
-; ----------------------------------------------------------------------------
+; -----------------------------------------------------------------------------
 ; is_get
-; ----------------------------------------------------------------------------
-; Vérifie si la chaîne pointée par rdi commence par "GET"
-; Attend :
+; -----------------------------------------------------------------------------
+; Vérifie si la requête commence par "GET"
+; Entrée :
 ;   - rdi : pointeur vers la requête
-; Retour :
-;   - rax ← GET_METHOD si c’est bien "GET", 0 sinon
-; ----------------------------------------------------------------------------
-
+; Sortie :
+;   - écrit GET_METHOD (1) dans [rsi] si correspond, ne fait rien sinon
+; -----------------------------------------------------------------------------
 is_get:
-    xor     rax, rax
-    cmp     BYTE [rdi], 'G'
+    cmp     BYTE [rdi],     'G'
     jne     .is_get_end
     cmp     BYTE [rdi + 1], 'E'
     jne     .is_get_end
     cmp     BYTE [rdi + 2], 'T'
     jne     .is_get_end
-    mov     rax, GET_METHOD
+
+    mov     BYTE [rsi], GET_METHOD
 
 .is_get_end:
     ret
 
+; -----------------------------------------------------------------------------
+; parse_route
+; -----------------------------------------------------------------------------
+; Extrait la route de la requête HTTP (si méthode == GET)
+; Entrées :
+;   - rdi : requête originale
+;   - rsi : buffer de destination (méthode à [rsi], route à [rsi + 1])
+; -----------------------------------------------------------------------------
 parse_route:
-    cmp     rax, GET_METHOD
+    cmp     BYTE [rsi], GET_METHOD
     je      .parse_get_route
-    ; cmp     rax, POST_METHOD
-    ; je      .parse_post_route
     ret
 
+; -----------------------------------------------------------------------------
+; .parse_get_route
+; -----------------------------------------------------------------------------
+; Copie la route trouvée dans la requête à partir de "/..." jusqu'à l'espace
+; Entrée :
+;   - rdi : buffer contenant la requête ("GET /path HTTP/1.1")
+;   - rsi : buffer de sortie (route à partir de [rsi + 1])
+; -----------------------------------------------------------------------------
 .parse_get_route:
-    mov     rdx, 4
+    mov     rdx, 5             ; Commence après "GET " (4) + '/' (1)
+    mov     rax, 1             ; Offset pour route (à partir de [rsi + 1])
 
 .get_loop:
-    cmp     BYTE [rdi + rdx], ' '
+    mov     bl, [rdi + rdx]
+    cmp     bl, ' '
     je      .parse_get_route_end
+
+    mov     [rsi + rax], bl
     inc     rdx
+    inc     rax
     jmp     .get_loop
 
 .parse_get_route_end:
-    sub     rdx, 4
-    mov     rax, rdx
     ret
-
-
-
