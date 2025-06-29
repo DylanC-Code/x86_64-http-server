@@ -7,6 +7,7 @@ section .text
 global exit_program
 global ft_strlen
 
+extern socket_close_server_connection
 
 ; =============================================================================
 ; ft_strlen
@@ -34,6 +35,7 @@ ft_strlen:
 ; Termine proprement le programme avec un code de retour 0.
 ; =============================================================================
 exit_program:
+    call    socket_close_server_connection
     mov     rax, SYS_EXIT
     xor     rdi, rdi
     syscall
