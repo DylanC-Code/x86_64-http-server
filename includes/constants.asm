@@ -9,7 +9,9 @@
 %define SYS_LISTEN    50
 %define SYS_ACCEPT    43
 %define SYS_WRITE     1
+%define SYS_READ      0
 %define SYS_EXIT      60
+%define SYS_CLOSE     3
 
 ; =====================
 ; Socket Domain / Types
@@ -21,7 +23,13 @@
 ; Network Constants
 ; =====================
 %define PORT_HTTP     0x80      ; Port 80 (big endian)
-;%define PORT_HTTP    0x5000      ; Port 80 (big endian)
+;%define PORT_HTTP    0x5100      ; Port 80 (big endian)
 %define INADDR_ANY    0x00000000
+
+; =====================
+; HTTP Constants
+; =====================
+%define GET_METHOD 1
+%define POST_METHOD 2
 
 %endif

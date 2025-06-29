@@ -7,6 +7,7 @@ extern socket_build
 extern socket_bind
 extern socket_listen
 extern socket_accept_connection
+extern socket_close_connection
 extern http_handle_request
 extern utils_exit
 
@@ -19,4 +20,6 @@ _start:
     call    socket_listen
     call    socket_accept_connection
     call    http_handle_request
+    call    socket_close_connection
+    ; jmp     socket_accept_connection
     call    utils_exit

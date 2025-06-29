@@ -15,6 +15,7 @@ global socket_build
 global socket_bind
 global socket_listen
 global socket_accept_connection
+global socket_close_connection
 
 ; -------------------------------------------------
 ; socket_build
@@ -81,3 +82,8 @@ socket_accept_connection:
 
     mov     r13, rax            ; sauvegarde fd client dans r13
     ret
+
+socket_close_connection:
+    mov     rax, SYS_CLOSE
+    mov     rdi, r13
+    syscall
