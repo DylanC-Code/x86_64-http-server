@@ -2,7 +2,6 @@
 
 BITS 64
 
-
 section .text
 global exit_program
 global ft_strlen
@@ -16,7 +15,7 @@ extern socket_close_server_connection
 ; -----------------------------------------------------------------------------
 ; Calcule la longueur d’une chaîne terminée par \0 (comme strlen en C).
 ; Entrée : rdi = adresse de la chaîne
-; Sortie : rax = longueur (hors \0)
+; Sortie  : rax = longueur (hors \0)
 ; =============================================================================
 ft_strlen:
     xor     rax, rax
@@ -31,28 +30,41 @@ ft_strlen:
     ret
 
 
+; =============================================================================
+; ft_isdigit
+; -----------------------------------------------------------------------------
+; Vérifie si le caractère dans dl est un chiffre ASCII (0-9).
+; Entrée : dl = caractère à tester
+; Sortie  : rax = 1 si chiffre, 0 sinon
+; =============================================================================
 ft_isdigit:
     xor     rax, rax
 
     cmp     dl, '0'
-    jge     .is_lower_than_nine
-    ret
-
-.is_lower_than_nine:
+    jl      .not_digit
     cmp     dl, '9'
-    jle     .success
-    ret
+    jg      .not_digit
 
-.success:
     mov     rax, 1
     ret
 
+.not_digit:
+    ret
 
+
+; =============================================================================
+; ft_chartodigit
+; -----------------------------------------------------------------------------
+; Convertit un caractère chiffre ASCII en sa valeur numérique.
+; Entrée : dl = caractère (ex: '0')
+; Sortie  : rax = valeur numérique (ex: 0)
+; =============================================================================
 ft_chartodigit:
     xor     rax, rax
     mov     al, dl
     sub     al, '0'
     ret
+
 
 ; =============================================================================
 ; exit_program
@@ -64,5 +76,3 @@ exit_program:
     mov     rax, SYS_EXIT
     xor     rdi, rdi
     syscall
-
-
