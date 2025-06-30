@@ -36,14 +36,15 @@ global socket_close_server_connection
 ;   - r12 ← fd du socket serveur
 ; =============================================================================
 socket_build:
-    mov     rax, SYS_SOCKET       ; socket(AF_INET, SOCK_STREAM, 0)
+    mov     rax, SYS_SOCKET           ; socket(AF_INET, SOCK_STREAM, 0)
     mov     rdi, AF_INET
     mov     rsi, SOCK_STREAM
-    xor     rdx, rdx              ; protocole 0 = IP
+    xor     rdx, rdx                  ; protocole 0 = IP
     syscall
 
-    mov     r12, rax              ; sauvegarde du fd socket
+    mov     r12, rax                  ; sauvegarde du fd socket
     ret
+
 
 ; =============================================================================
 ; socket_bind
@@ -54,23 +55,25 @@ socket_build:
 socket_bind:
     push    rbp
     mov     rbp, rsp
-    sub     rsp, 16               ; struct sockaddr_in = 16 octets
+    sub     rsp, 16                   ; struct sockaddr_in = 16 octets
 
     ; struct sockaddr_in {
-    ;     sa_family (2 bytes), port (2), address (4), padding (8)
+    ;     sa_family (2 bytes), port (2),
+    ;     address (4), padding (8)
     ; }
     mov     word  [rsp],     AF_INET
     mov     word  [rsp + 2], PORT_HTTP
     mov     dword [rsp + 4], INADDR_ANY
 
     mov     rax, SYS_BIND
-    mov     rdi, r12              ; socket fd
-    mov     rsi, rsp              ; sockaddr_in*
-    mov     rdx, 16               ; sizeof(sockaddr_in)
+    mov     rdi, r12                  ; socket fd
+    mov     rsi, rsp                  ; sockaddr_in*
+    mov     rdx, 16                   ; sizeof(sockaddr_in)
     syscall
 
     leave
     ret
+
 
 ; =============================================================================
 ; socket_listen
@@ -84,6 +87,7 @@ socket_listen:
     syscall
     ret
 
+
 ; =============================================================================
 ; socket_accept_connection
 ; -----------------------------------------------------------------------------
@@ -94,12 +98,13 @@ socket_listen:
 socket_accept_connection:
     mov     rax, SYS_ACCEPT
     mov     rdi, r12
-    xor     rsi, rsi              ; sockaddr* NULL
-    xor     rdx, rdx              ; addrlen* NULL
+    xor     rsi, rsi                  ; sockaddr* NULL
+    xor     rdx, rdx                  ; addrlen* NULL
     syscall
 
     mov     r13, rax
     ret
+
 
 ; =============================================================================
 ; socket_close_client_connection
@@ -111,6 +116,7 @@ socket_close_client_connection:
     mov     rax, SYS_CLOSE
     syscall
     ret
+
 
 ; =============================================================================
 ; socket_close_server_connection
