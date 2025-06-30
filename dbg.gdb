@@ -1,7 +1,10 @@
 set disassembly-flavor intel
 
 
-#break http_handle_request
+break http_handle_request
+commands
+    display/10i $rip
+end
 
 #break   parse_body
 #commands
@@ -16,20 +19,21 @@ set disassembly-flavor intel
 #end
 
 #break parse_content_length
+#break get_content_len
 #commands
 #    display/20cb  $rdi + $rcx
 #    display/d $rcx
 #    display/d $rdx
 #end
 
-break get_content_len
-commands
-    display/10i $rip
-end
-
-#break parse_content_length
+#break handle_post_method
 #commands
 #    display/10i $rip
 #end
+
+break parse_content_body
+commands
+    display/10i $rip
+end
 
 run

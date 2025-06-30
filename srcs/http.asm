@@ -7,9 +7,9 @@ BITS 64
 ; =============================================================================
 section .data
     request_buffer     times 1024 db 0                ; Buffer de réception de la requête
-    parsed_request     times 1026 db 0                ; [0] = méthode, [1..] = route, [1025] = content_len
+    parsed_request     times 2053 db 0                ; [0] = méthode, [1..] = route, [1025..1028] = content_len, [1029..] = body
     file_buffer        times 1024 db 0                ; Contenu du fichier lu
-    http_header:           db "HTTP/1.0 200 OK", 13, 10, 13, 10  ; Réponse HTTP minimale
+    http_header_response:           db "HTTP/1.0 200 OK", 13, 10, 13, 10  ; Réponse HTTP minimale
 
 ; =============================================================================
 ; Section .text : Code exécutable
@@ -20,6 +20,8 @@ global http_handle_request
 
 extern parse_request
 extern ft_strlen
+extern socket_close_server_connection
+extern socket_close_client_connection
 
 ; -----------------------------------------------------------------------------
 ; http_handle_request
@@ -36,6 +38,8 @@ http_handle_request:
     push    rbp
     mov     rbp, rsp
 
+    ; call    socket_close_server_connection
+    call    clear_buffers
     call    read_request
     push    rax                        ; sauvegarde adresse du buffer
 
@@ -45,6 +49,8 @@ http_handle_request:
 
     mov     rdi, rsi                   ; rdi ← parsed_request
     call    handle_method
+
+    call    socket_close_client_connection
 
     add     rsp, 8                     ; restore stack
     leave
@@ -80,7 +86,19 @@ read_request:
 ; -----------------------------------------------------------------------------
 handle_method:
     cmp     BYTE [rdi], GET_METHOD
-    je      handle_get_method
+    je      .call_get
+
+    cmp     BYTE [rdi], POST_METHOD
+    je      .call_post
+
+    ret
+
+.call_get:
+    call handle_get_method
+    ret
+
+.call_post:
+    call handle_post_method
     ret
 
 ; -----------------------------------------------------------------------------
@@ -133,7 +151,7 @@ handle_get_method:
     ; Envoi du header HTTP
     ; ---------------------------------------------------------
     mov     rdi, r13                  ; socket client
-    mov     rsi, http_header
+    mov     rsi, http_header_response
     mov     rdx, 19                   ; taille du header
     mov     rax, SYS_WRITE
     syscall
@@ -158,4 +176,75 @@ handle_get_method:
     ; ---------------------------------------------------------
     add     rsp, 8
     leave
+    ret
+
+
+handle_post_method:
+    mov     r8, rdi
+
+    ; ---------------------------------------------------------
+    ; Ouverture du fichier (route stockée à [r8 + 1])
+    ; -------------------------------------------------------
+.open_dest_file:
+    mov     rdi, r8
+    inc     rdi             ; Fichier a ouvrir
+    mov     rsi, 65        ; Flags utiliser O_CREAT | O_WRONLY
+    mov     rdx, 511
+    mov     rax, SYS_OPEN
+    syscall
+    push    rax
+
+    ; ---------------------------------------------------------
+    ; Ecriture du body dans le fichier (stockée à [r8 + 1026])
+    ; -------------------------------------------------------
+.write_dest_file:
+    mov     rdi, rax
+    mov     rsi, r8
+    add     rsi, 1029
+    mov     edx, DWORD [r8 + 1025]
+    mov     rax, SYS_WRITE
+    syscall
+
+    ; ---------------------------------------------------------
+    ; Fermeture du fichier
+    ; -------------------------------------------------------
+.close_dest_file:
+    pop     rdi
+    mov     rax, SYS_CLOSE
+    syscall
+
+    ; ---------------------------------------------------------
+    ; Envoie de la reponse au client
+    ; -------------------------------------------------------
+.send_response:
+    mov     rdi, r13
+    mov     rsi, http_header_response
+    mov     rdx, 19
+    mov     rax, SYS_WRITE
+    syscall
+
+    ret
+
+
+
+
+clear_buffers:
+    ; Réinitialiser request_buffer (1024 octets)
+    mov     rdi, request_buffer
+    mov     rcx, 1024
+    xor     rax, rax
+    rep stosb
+
+    ; Réinitialiser parsed_request (2053 octets)
+    mov     rdi, parsed_request
+    mov     rcx, 2053
+    xor     rax, rax
+    rep stosb
+
+    ; Réinitialiser file_buffer (1024 octets)
+    mov     rdi, file_buffer
+    mov     rcx, 1024
+    xor     rax, rax
+    rep stosb
+
     ret

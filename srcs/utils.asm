@@ -60,7 +60,7 @@ ft_chartodigit:
 ; Termine proprement le programme avec un code de retour 0.
 ; =============================================================================
 exit_program:
-    call    socket_close_server_connection
+    ; call    socket_close_server_connection
     mov     rax, SYS_EXIT
     xor     rdi, rdi
     syscall

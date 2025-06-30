@@ -24,22 +24,37 @@ _start:
     call    handle_connection
 
 handle_connection:
-    call    socket_accept_connection
-    ; call    create_child
+    call    socket_accept_connection  ; r13 ← fd client
+    call    create_child              ; fork
+
+    ; si on est dans l’enfant, on traite la requête
     call    http_handle_request
-    call    socket_close_client_connection
-    call    exit_program
+    jmp     handle_connection
+    call    exit_program            ;
+
+; create_child:
+;     mov     rax, SYS_FORK
+;     syscall
+
+;     cmp     rax, 0
+;     jne     .in_parent
+;     ret
+
+; .in_parent:
+;     call    socket_close_client_connection
+;     jmp     handle_connection
+
 
 create_child:
     mov     rax, SYS_FORK
     syscall
+    test    rax, rax
+    jnz     .in_parent                ; rax != 0 → parent
 
-    cmp     rax, 0
-    jne     .in_parent
-    ret
+    ret                               ; enfant → continue dans handle_connection
 
 .in_parent:
     call    socket_close_client_connection
-    jmp     handle_connection
+    jmp     handle_connection         ; reboucle dans le parent
 
 

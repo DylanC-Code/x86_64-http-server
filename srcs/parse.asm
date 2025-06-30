@@ -11,6 +11,7 @@ global parse_request
 
 extern ft_isdigit
 extern ft_chartodigit
+extern ft_strlen
 
 ; -----------------------------------------------------------------------------
 ; parse_request
@@ -98,14 +99,6 @@ parse_route:
     je      .parse_post_route
     ret
 
-; -----------------------------------------------------------------------------
-; .parse_get_route
-; -----------------------------------------------------------------------------
-; Copie la route trouvée dans la requête à partir de "/..." jusqu'à l'espace
-; Entrée :
-;   - rdi : buffer contenant la requête ("GET /path HTTP/1.1")
-;   - rsi : buffer de sortie (route à partir de [rsi + 1])
-; -----------------------------------------------------------------------------
 .parse_get_route:
     mov     rdx, 4             ; Commence après "GET " (4)
     mov     rax, 1             ; Offset pour route (à partir de [rsi + 1])
@@ -140,11 +133,16 @@ parse_body:
 
     pop     rsi
     pop     rdi
-    mov     BYTE [rsi + 1025], al
+    mov     [rsi + 1025], rax
 
-    
+    push    rdi
+    push    rsi
+    call    parse_content_body
+
 
 .skip_parse_body:
+    pop     rsi
+    pop     rdi
     ret
 
 parse_content_length:
@@ -186,6 +184,7 @@ get_content_len:
     push    rdi
     mov     dl, [rdi + rcx]
     call    ft_chartodigit
+    imul    rbx, 10
     add     rbx, rax
 
     pop     rdi
@@ -195,3 +194,28 @@ get_content_len:
 .end:
     mov     rax, rbx
     ret
+
+
+parse_content_body:
+    call    ft_strlen
+    mov     rcx, rax            ; Longueur total de la requete (header + body)
+    sub     ecx, DWORD [rsi + 1025]   ; Longueur du header
+
+    add     rdi, rcx            ; Decallage du buffer de la requete apres le header
+    xor     rcx, rcx            ; Index de parcours du body
+    mov     r8, rsi
+    add     r8, 1029            ; Destination decriture
+
+.copy_byte:
+    cmp     ecx, DWORD [rsi + 1025]
+    jge     .end
+    mov     al, BYTE [rdi + rcx]
+    mov     [r8 + rcx], al
+    inc     rcx
+    jmp     .copy_byte
+
+.end:
+    ret
+
+
+
