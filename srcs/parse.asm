@@ -4,7 +4,7 @@ BITS 64
 
 section .data:
     header_content_len: db "Content-Length: "
-    header_len: db 16
+    header_len:         db 16
 
 section .text
 global parse_request
@@ -33,19 +33,21 @@ parse_request:
     call    parse_body
     ret
 
+
 ; -----------------------------------------------------------------------------
 ; parse_method
 ; -----------------------------------------------------------------------------
-; Détecte la méthode HTTP (actuellement uniquement GET)
+; Détecte la méthode HTTP (actuellement uniquement GET et POST)
 ; Entrée :
 ;   - rdi : pointeur vers la requête (ex: "GET /...")
 ; Sortie :
-;   - écrit GET_METHOD dans [rsi] si trouvé
+;   - écrit GET_METHOD ou POST_METHOD dans [rsi] si reconnu
 ; -----------------------------------------------------------------------------
 parse_method:
     call    is_get
     call    is_post
     ret
+
 
 ; -----------------------------------------------------------------------------
 ; is_get
@@ -54,7 +56,7 @@ parse_method:
 ; Entrée :
 ;   - rdi : pointeur vers la requête
 ; Sortie :
-;   - écrit GET_METHOD (1) dans [rsi] si correspond, ne fait rien sinon
+;   - écrit GET_METHOD (1) dans [rsi] si correspond, sinon ne fait rien
 ; -----------------------------------------------------------------------------
 is_get:
     cmp     BYTE [rdi],     'G'
@@ -69,6 +71,16 @@ is_get:
 .is_get_end:
     ret
 
+
+; -----------------------------------------------------------------------------
+; is_post
+; -----------------------------------------------------------------------------
+; Vérifie si la requête commence par "POST"
+; Entrée :
+;   - rdi : pointeur vers la requête
+; Sortie :
+;   - écrit POST_METHOD (2) dans [rsi] si correspond, sinon ne fait rien
+; -----------------------------------------------------------------------------
 is_post:
     cmp     BYTE [rdi],     'P'
     jne     .is_post_end
@@ -84,10 +96,11 @@ is_post:
 .is_post_end:
     ret
 
+
 ; -----------------------------------------------------------------------------
 ; parse_route
 ; -----------------------------------------------------------------------------
-; Extrait la route de la requête HTTP (si méthode == GET)
+; Extrait la route de la requête HTTP selon la méthode
 ; Entrées :
 ;   - rdi : requête originale
 ;   - rsi : buffer de destination (méthode à [rsi], route à [rsi + 1])
@@ -100,14 +113,14 @@ parse_route:
     ret
 
 .parse_get_route:
-    mov     rdx, 4             ; Commence après "GET " (4)
-    mov     rax, 1             ; Offset pour route (à partir de [rsi + 1])
+    mov     rdx, 4             ; Commence après "GET " (4 chars)
+    mov     rax, 1             ; Offset dans buffer de destination (route commence à [rsi + 1])
     jmp     .parse_route_loop
 
 .parse_post_route:
-    mov     rdx, 5             ; Commence après "POST " (5)
-    mov     rax, 1             ; Offset pour route (à partir de [rsi + 1])
-    jmp      .parse_route_loop
+    mov     rdx, 5             ; Commence après "POST " (5 chars)
+    mov     rax, 1
+    jmp     .parse_route_loop
 
 .parse_route_loop:
     mov     bl, [rdi + rdx]
@@ -123,50 +136,67 @@ parse_route:
     ret
 
 
+; -----------------------------------------------------------------------------
+; parse_body
+; -----------------------------------------------------------------------------
+; Si méthode POST, extrait la longueur et copie le corps
+; -----------------------------------------------------------------------------
 parse_body:
     push    rdi
     push    rsi
 
     cmp     BYTE [rsi], POST_METHOD
     jne     .skip_parse_body
+
     call    parse_content_length
 
     pop     rsi
     pop     rdi
-    mov     [rsi + 1025], rax
+    mov     [rsi + 1025], rax    ; Stocke la longueur du corps dans parsed_request + 1025
 
     push    rdi
     push    rsi
     call    parse_content_body
-
 
 .skip_parse_body:
     pop     rsi
     pop     rdi
     ret
 
+
+; -----------------------------------------------------------------------------
+; parse_content_length
+; -----------------------------------------------------------------------------
+; Cherche la valeur Content-Length dans la requête HTTP (rdi)
+; Utilise rcx comme index dans requête, rdx pour parcourir header_content_len
+; -----------------------------------------------------------------------------
 parse_content_length:
-    mov     rcx, 5                  ;  index dans la requête (rdi)
-    xor     rdx, rdx                ; index dans le header "Content-Length: "
+    mov     rcx, 5               ; index initial dans la requête (après "POST ")
+    xor     rdx, rdx             ; index dans header_content_len
 
 .reset_header_index:
-    xor     rdx, rdx                ;
+    xor     rdx, rdx
 
 .scan:
     inc     rcx
-    mov     al, [rdi + rcx]                   ; Caractere de la requete
-    mov     bl, [header_content_len + rdx]    ; Caractere du header
+    mov     al, [rdi + rcx]          ; caractère de la requête
+    mov     bl, [header_content_len + rdx] ; caractère du header attendu
     cmp     al, bl
-
     jne     .reset_header_index
     inc     rdx
 
     cmp     rdx, [header_len]
-
     jne     .scan
-    call     get_content_len
+
+    call    get_content_len
     ret
 
+
+; -----------------------------------------------------------------------------
+; get_content_len
+; -----------------------------------------------------------------------------
+; Lit la valeur numérique du Content-Length après le header
+; -----------------------------------------------------------------------------
 get_content_len:
     xor     rbx, rbx
     inc     rcx
@@ -184,6 +214,7 @@ get_content_len:
     push    rdi
     mov     dl, [rdi + rcx]
     call    ft_chartodigit
+
     imul    rbx, 10
     add     rbx, rax
 
@@ -196,15 +227,23 @@ get_content_len:
     ret
 
 
+; -----------------------------------------------------------------------------
+; parse_content_body
+; -----------------------------------------------------------------------------
+; Copie le corps de la requête HTTP à partir de parsed_request + 1029
+; Entrées :
+;   - rdi : pointeur vers la requête complète
+;   - rsi : pointeur vers parsed_request
+; -----------------------------------------------------------------------------
 parse_content_body:
     call    ft_strlen
-    mov     rcx, rax            ; Longueur total de la requete (header + body)
-    sub     ecx, DWORD [rsi + 1025]   ; Longueur du header
+    mov     rcx, rax                ; longueur totale de la requête (header + body)
+    sub     ecx, DWORD [rsi + 1025] ; longueur du header
 
-    add     rdi, rcx            ; Decallage du buffer de la requete apres le header
-    xor     rcx, rcx            ; Index de parcours du body
+    add     rdi, rcx                ; décalage buffer vers début du body
+    xor     rcx, rcx                ; index de parcours du body
     mov     r8, rsi
-    add     r8, 1029            ; Destination decriture
+    add     r8, 1029                ; destination d’écriture du corps
 
 .copy_byte:
     cmp     ecx, DWORD [rsi + 1025]
@@ -216,6 +255,3 @@ parse_content_body:
 
 .end:
     ret
-
-
-
