@@ -6,10 +6,10 @@ BITS 64
 ; Section .data : Buffers et réponse HTTP
 ; =============================================================================
 section .data
-    request_buffer     times 1024 db 0                ; Buffer de réception de la requête
-    parsed_request     times 2053 db 0                ; [0] = méthode, [1..] = route, [1025..1028] = content_len, [1029..] = body
-    file_buffer        times 1024 db 0                ; Contenu du fichier lu
-    http_header_response:           db "HTTP/1.0 200 OK", 13, 10, 13, 10  ; Réponse HTTP minimale
+    request_buffer       times 1024 db 0                      ; Buffer réception requête
+    parsed_request       times 2053 db 0                      ; [0]=méthode, [1..]=route, [1025..1028]=content_len, [1029..]=body
+    file_buffer          times 1024 db 0                      ; Contenu du fichier lu
+    http_header_response: db "HTTP/1.0 200 OK", 13, 10, 13, 10 ; Réponse HTTP minimale (CRLF CRLF)
 
 ; =============================================================================
 ; Section .text : Code exécutable
@@ -27,43 +27,43 @@ extern socket_close_client_connection
 ; http_handle_request
 ; -----------------------------------------------------------------------------
 ; Point d'entrée principal pour gérer une requête HTTP.
-; Attend :
-;   - r13 : descripteur de socket client
-; Effet :
+; Attendu :
+;   - r13 : fd socket client
+; Effets :
 ;   - Lit la requête dans request_buffer
-;   - Parse la méthode et la route dans parsed_request
-;   - Appelle le handler selon la méthode
+;   - Parse méthode et route dans parsed_request
+;   - Appelle handler selon méthode
 ; -----------------------------------------------------------------------------
 http_handle_request:
     push    rbp
     mov     rbp, rsp
 
-    ; call    socket_close_server_connection
+    ; call socket_close_server_connection       ; (commenté dans l’original)
     call    clear_buffers
     call    read_request
-    push    rax                        ; sauvegarde adresse du buffer
 
-    mov     rdi, rax                   ; rdi ← buffer de requête
-    mov     rsi, parsed_request        ; rsi ← structure de sortie
+    push    rax                      ; sauvegarde adresse du buffer (request_buffer)
+
+    mov     rdi, rax                 ; rdi ← buffer de requête
+    mov     rsi, parsed_request      ; rsi ← structure de sortie
     call    parse_request
 
-    mov     rdi, rsi                   ; rdi ← parsed_request
+    mov     rdi, rsi                 ; rdi ← parsed_request
     call    handle_method
 
     call    socket_close_client_connection
 
-    add     rsp, 8                     ; restore stack
+    add     rsp, 8                   ; restauration pile
     leave
     ret
+
 
 ; -----------------------------------------------------------------------------
 ; read_request
 ; -----------------------------------------------------------------------------
-; Lit jusqu’à 1024 octets depuis le socket client.
-; Entrée :
-;   - r13 : socket client
+; Lit jusqu’à 1024 octets depuis le socket client (r13).
 ; Sortie :
-;   - rax ← pointeur vers request_buffer
+;   - rax ← adresse de request_buffer
 ; -----------------------------------------------------------------------------
 read_request:
     mov     rax, SYS_READ
@@ -75,14 +75,16 @@ read_request:
     mov     rax, request_buffer
     ret
 
+
 ; -----------------------------------------------------------------------------
 ; handle_method
 ; -----------------------------------------------------------------------------
 ; Traite la méthode HTTP contenue dans parsed_request.
 ; Entrée :
 ;   - rdi : pointeur vers parsed_request
-; Effet :
+; Effets :
 ;   - Appelle handle_get_method si méthode = GET
+;   - Appelle handle_post_method si méthode = POST
 ; -----------------------------------------------------------------------------
 handle_method:
     cmp     BYTE [rdi], GET_METHOD
@@ -94,130 +96,106 @@ handle_method:
     ret
 
 .call_get:
-    call handle_get_method
+    call    handle_get_method
     ret
 
 .call_post:
-    call handle_post_method
+    call    handle_post_method
     ret
+
 
 ; -----------------------------------------------------------------------------
 ; handle_get_method
 ; -----------------------------------------------------------------------------
-; Gère une requête GET. Lit le fichier demandé et l’envoie au client.
-; Entrée :
-;   - rdi : ignoré
-;   - rsi : pointeur vers parsed_request
+; Gère une requête GET.
 ; Effets :
-;   - Ouvre, lit, ferme le fichier demandé
-;   - Envoie un header HTTP, puis le contenu du fichier
+;   - Ouvre, lit, ferme le fichier demandé (route à [rsi + 1])
+;   - Envoie un header HTTP puis contenu du fichier au client
 ; -----------------------------------------------------------------------------
 handle_get_method:
     push    rbp
     mov     rbp, rsp
 
-    ; ---------------------------------------------------------
-    ; Ouverture du fichier (route stockée à [rsi + 1])
-    ; ---------------------------------------------------------
     push    rsi
     sub     rsp, 8
 
     mov     rdi, rsi
-    add     rdi, 1                     ; rdi ← route (skip méthode)
+    add     rdi, 1                   ; rdi ← route (après méthode)
 
     mov     rax, SYS_OPEN
     mov     rsi, O_RDONLY
     syscall
 
-    mov     [rsp], rax                ; sauvegarde fd
+    mov     [rsp], rax               ; sauvegarde fd fichier
 
-    ; ---------------------------------------------------------
-    ; Lecture du fichier dans file_buffer
-    ; ---------------------------------------------------------
-    mov     rdi, rax                  ; fd fichier
+    mov     rdi, rax                 ; fd fichier
     mov     rsi, file_buffer
     mov     rdx, 1024
     mov     rax, SYS_READ
     syscall
 
-    ; ---------------------------------------------------------
-    ; Fermeture du fichier
-    ; ---------------------------------------------------------
     mov     rdi, [rsp]
     mov     rax, SYS_CLOSE
     syscall
 
-    ; ---------------------------------------------------------
-    ; Envoi du header HTTP
-    ; ---------------------------------------------------------
-    mov     rdi, r13                  ; socket client
+    mov     rdi, r13                 ; fd socket client
     mov     rsi, http_header_response
-    mov     rdx, 19                   ; taille du header
+    mov     rdx, 19                  ; taille header
     mov     rax, SYS_WRITE
     syscall
 
-    ; ---------------------------------------------------------
-    ; Calcul de la taille du fichier lu
-    ; ---------------------------------------------------------
     mov     rdi, file_buffer
-    call    ft_strlen                 ; rax ← taille
+    call    ft_strlen                ; rax ← taille fichier lu
 
-    ; ---------------------------------------------------------
-    ; Envoi du contenu du fichier
-    ; ---------------------------------------------------------
-    mov     rdi, r13                  ; socket client
+    mov     rdi, r13                 ; socket client
     mov     rsi, file_buffer
-    mov     rdx, rax                  ; taille lue
+    mov     rdx, rax                 ; taille lue
     mov     rax, SYS_WRITE
     syscall
 
-    ; ---------------------------------------------------------
-    ; Nettoyage
-    ; ---------------------------------------------------------
     add     rsp, 8
     leave
     ret
 
 
+; -----------------------------------------------------------------------------
+; handle_post_method
+; -----------------------------------------------------------------------------
+; Gère une requête POST.
+; Effets :
+;   - Ouvre/crée le fichier (route à [r8 + 1])
+;   - Écrit le body (stocké à [r8 + 1029]) dans le fichier
+;   - Ferme le fichier
+;   - Envoie réponse HTTP au client
+; -----------------------------------------------------------------------------
 handle_post_method:
     mov     r8, rdi
 
-    ; ---------------------------------------------------------
-    ; Ouverture du fichier (route stockée à [r8 + 1])
-    ; -------------------------------------------------------
 .open_dest_file:
     mov     rdi, r8
-    inc     rdi             ; Fichier a ouvrir
-    mov     rsi, 65        ; Flags utiliser O_CREAT | O_WRONLY
-    mov     rdx, 511
+    inc     rdi                       ; fichier à ouvrir (route)
+
+    mov     rsi, 65                  ; flags O_CREAT | O_WRONLY
+    mov     rdx, 511                 ; mode 0777 octal (droits)
     mov     rax, SYS_OPEN
     syscall
-    push    rax
+    push    rax                      ; sauvegarde fd
 
-    ; ---------------------------------------------------------
-    ; Ecriture du body dans le fichier (stockée à [r8 + 1026])
-    ; -------------------------------------------------------
 .write_dest_file:
-    mov     rdi, rax
+    mov     rdi, rax                 ; fd fichier
     mov     rsi, r8
-    add     rsi, 1029
-    mov     edx, DWORD [r8 + 1025]
+    add     rsi, 1029                ; body
+    mov     edx, DWORD [r8 + 1025]  ; longueur body
     mov     rax, SYS_WRITE
     syscall
 
-    ; ---------------------------------------------------------
-    ; Fermeture du fichier
-    ; -------------------------------------------------------
 .close_dest_file:
-    pop     rdi
+    pop     rdi                      ; fd fichier
     mov     rax, SYS_CLOSE
     syscall
 
-    ; ---------------------------------------------------------
-    ; Envoie de la reponse au client
-    ; -------------------------------------------------------
 .send_response:
-    mov     rdi, r13
+    mov     rdi, r13                 ; socket client
     mov     rsi, http_header_response
     mov     rdx, 19
     mov     rax, SYS_WRITE
@@ -226,22 +204,22 @@ handle_post_method:
     ret
 
 
-
-
+; -----------------------------------------------------------------------------
+; clear_buffers
+; -----------------------------------------------------------------------------
+; Réinitialise les buffers (request_buffer, parsed_request, file_buffer)
+; -----------------------------------------------------------------------------
 clear_buffers:
-    ; Réinitialiser request_buffer (1024 octets)
     mov     rdi, request_buffer
     mov     rcx, 1024
     xor     rax, rax
     rep stosb
 
-    ; Réinitialiser parsed_request (2053 octets)
     mov     rdi, parsed_request
     mov     rcx, 2053
     xor     rax, rax
     rep stosb
 
-    ; Réinitialiser file_buffer (1024 octets)
     mov     rdi, file_buffer
     mov     rcx, 1024
     xor     rax, rax
