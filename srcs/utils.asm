@@ -6,6 +6,8 @@ BITS 64
 section .text
 global exit_program
 global ft_strlen
+global ft_isdigit
+global ft_chartodigit
 
 extern socket_close_server_connection
 
@@ -28,6 +30,29 @@ ft_strlen:
 .ft_strlen_end:
     ret
 
+
+ft_isdigit:
+    xor     rax, rax
+
+    cmp     dl, '0'
+    jge     .is_lower_than_nine
+    ret
+
+.is_lower_than_nine:
+    cmp     dl, '9'
+    jle     .success
+    ret
+
+.success:
+    mov     rax, 1
+    ret
+
+
+ft_chartodigit:
+    xor     rax, rax
+    mov     al, dl
+    sub     al, '0'
+    ret
 
 ; =============================================================================
 ; exit_program

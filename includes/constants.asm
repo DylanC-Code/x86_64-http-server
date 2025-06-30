@@ -8,10 +8,12 @@
 %define SYS_BIND      49
 %define SYS_LISTEN    50
 %define SYS_ACCEPT    43
+%define SYS_FORK      57
 %define SYS_WRITE     1
 %define SYS_READ      0
 %define SYS_EXIT      60
 %define SYS_CLOSE     3
+%define SYS_OPEN      2
 
 ; =====================
 ; Socket Domain / Types
@@ -31,5 +33,10 @@
 ; =====================
 %define GET_METHOD 1
 %define POST_METHOD 2
+
+; =====================
+; File Constants
+; =====================
+%define O_RDONLY 0
 
 %endif

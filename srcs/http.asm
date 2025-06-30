@@ -7,7 +7,7 @@ BITS 64
 ; =============================================================================
 section .data
     request_buffer     times 1024 db 0                ; Buffer de réception de la requête
-    parsed_request     times 1025 db 0                ; [0] = méthode, [1..] = route
+    parsed_request     times 1026 db 0                ; [0] = méthode, [1..] = route, [1025] = content_len
     file_buffer        times 1024 db 0                ; Contenu du fichier lu
     http_header:           db "HTTP/1.0 200 OK", 13, 10, 13, 10  ; Réponse HTTP minimale
 

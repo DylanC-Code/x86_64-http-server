@@ -25,7 +25,7 @@ _start:
 
 handle_connection:
     call    socket_accept_connection
-    call    create_child
+    ; call    create_child
     call    http_handle_request
     call    socket_close_client_connection
     call    exit_program
@@ -38,7 +38,7 @@ create_child:
     jne     .in_parent
     ret
 
-.parent:
+.in_parent:
     call    socket_close_client_connection
     jmp     handle_connection
 
